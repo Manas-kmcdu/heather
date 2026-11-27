@@ -154,6 +154,12 @@ a:hover { color: var(--bone); }
 .opt:has(input:checked) { border-color: var(--heather); background: #17141b; }
 .opt:has(input:checked) .mk { background: var(--heather); border-color: var(--heather); }
 .opt:has(input:focus-visible) { outline: 2px solid var(--heather); outline-offset: 2px; }
+.pitch { width: 100%; background: var(--panel); color: var(--bone); border: 1px solid var(--line); border-radius: 2px; padding: 16px 18px; min-height: 170px; font: 400 20px/1.5 var(--body); outline: none; resize: vertical; }
+.pitch:focus { border-color: var(--heather); }
+.pitch::placeholder { color: #6d6a65; }
+.count { font: 500 13px/1 var(--mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--mute); }
+.count.ok { color: var(--heather); }
+.count.bad { color: #f0b4a8; }
 .err { margin: 0; color: #f0b4a8; font: 500 14px/1.5 var(--mono); letter-spacing: 0.04em; }
 .submitRow { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: center; }
 .done { flex: 2 1 480px; min-width: 0; border: 1px solid var(--heather); background: #17141b; padding: 40px 32px; display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
@@ -289,6 +295,11 @@ button { font-family: inherit; }
           </div>
         </div>
         <div id="qs" style="display:flex;flex-direction:column;gap:44px"></div>
+        <fieldset class="q">
+          <legend><span class="mono">One final step</span><span class="qt">Convince us that you are an interesting person and you're in.</span></legend>
+          <textarea class="pitch" id="f-pitch" name="pitch" rows="6" placeholder="Make it good."></textarea>
+          <div class="count" id="count"><span id="wc">0</span> words / 60 to 80</div>
+        </fieldset>
         <p class="err" id="err" role="alert" hidden></p>
         <div class="submitRow">
           <button class="cta" type="submit" id="send">Request my spot <svg width="18" height="18" aria-hidden="true"><use href="#arrow"></use></svg></button>
@@ -357,6 +368,16 @@ $("qs").innerHTML = QUESTIONS.map(function (q, qi) {
   return '<fieldset class="q"><legend><span class="mono">Question ' + (qi + 1) + " of " + QUESTIONS.length + '</span><span class="qt">' + esc(q.text) + '</span></legend><div class="opts">' + opts + "</div></fieldset>";
 }).join("");
 
+// word counter
+function words(s) { var t = s.trim(); return t ? t.split(/\s+/).length : 0; }
+var pitch = $("f-pitch"), wc = $("wc"), cnt = $("count");
+function updateCount() {
+  var n = words(pitch.value);
+  wc.textContent = n;
+  cnt.className = "count " + (n >= 60 && n <= 80 ? "ok" : (n > 0 ? "bad" : ""));
+}
+pitch.addEventListener("input", updateCount);
+
 // submit
 var form = $("reg"), err = $("err"), sendBtn = $("send");
 function showError(msg) { err.textContent = msg; err.hidden = false; }
@@ -365,8 +386,11 @@ form.addEventListener("submit", function (e) {
   var fd = new FormData(form);
   var payload = { name: (fd.get("name") || "").trim(), college: (fd.get("college") || "").trim(), year: fd.get("year") || "" };
   QUESTIONS.forEach(function (q) { payload[q.id] = fd.get(q.id) || ""; });
+  payload.pitch = (fd.get("pitch") || "").trim();
   var missing = !payload.name || !payload.college || !payload.year || QUESTIONS.some(function (q) { return !payload[q.id]; });
   if (missing) { showError("Please add your name, college and year, and answer all four questions."); return; }
+  var n = words(payload.pitch);
+  if (n < 60 || n > 80) { showError("Your final answer needs to be 60 to 80 words. Right now it's " + n + "."); return; }
   err.hidden = true;
   sendBtn.disabled = true;
   fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) })
